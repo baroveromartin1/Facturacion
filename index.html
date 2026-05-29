@@ -681,8 +681,8 @@ function switchTab(name){
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 // ⚠ CAMBIÁ ESTOS VALORES antes de subir a GitHub
-const PASSWORD_ADMIN   = 'Red2024';   // ve todo: configuración + carga de archivos
-const PASSWORD_VIEWER  = 'Red2026';   // solo ve el dashboard, sin configuración
+const PASSWORD_ADMIN   = 'redmas2024';   // ve todo: configuración + carga de archivos
+const PASSWORD_VIEWER  = 'redver2024';   // solo ve el dashboard, sin configuración
 
 function applyRole(role){
   // admin ve todo, viewer no ve config ni botones de carga
@@ -701,8 +701,8 @@ function checkLogin(){
     sessionStorage.setItem('rp_auth','1');
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('mainApp').style.display='block';
-    document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url')||'';
-    document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass')||'';
+    document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url') || 'https://script.google.com/macros/s/AKfycbxElk-roFeTXGo8Gl3VSBTdwtLwoygRWZfCFa3MLas4KoTaQhCqMEP7DixpZ0-BwaR3kA/exec';
+    document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass') || 'Red2024';
     applyRole(role);
     // si es viewer y hay config guardada, cargar datos automáticamente
     if(role === 'viewer' && localStorage.getItem('rp_url')){
@@ -726,4 +726,3 @@ if(sessionStorage.getItem('rp_auth')==='1'){
 </script>
 </body>
 </html>
-
