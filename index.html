@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red+ · Dashboard de Facturación</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f1f0ed;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+    --text3: #999890;
+    --green: #1D9E75;
+    --blue: #378ADD;
+    --amber: #BA7517;
+    --red: #A32D2D;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #24241f;
+      --surface2: #2e2e28;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+      --text: #f0efe8;
+      --text2: #b4b2a9;
+      --text3: #6e6d66;
+    }
+  }
+  /* ── CONTRASEÑA DE ACCESO AL DASHBOARD ─────────────────────
+     Cambiá este valor antes de subir a GitHub.
+     Es distinta a la contraseña de Google Drive.        */
+  /* (la contraseña se define en el JS, buscá APP_PASSWORD) */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 0 24px 60px; }
+
+  /* LOGIN */
+  #loginScreen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .login-box {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 36px;
+    width: 100%; max-width: 360px;
+    text-align: center;
+  }
+  .login-logo { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .login-logo span { color: var(--green); }
+  .login-sub { font-size: 13px; color: var(--text3); margin-bottom: 28px; }
+  .login-box input[type=password] {
+    width: 100%; padding: 10px 14px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text);
+    font-size: 15px; text-align: center;
+    letter-spacing: 3px; margin-bottom: 14px;
+  }
+  .login-box input[type=password]:focus { outline: none; border-color: var(--green); }
+  .login-btn {
+    width: 100%; padding: 10px;
+    background: var(--green); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background .15s;
+  }
+  .login-btn:hover { background: #179060; }
+  .login-error { font-size: 12px; color: var(--red); margin-top: 10px; min-height: 16px; }
+
+  /* HEADER */
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 28px 0 20px; border-bottom: 0.5px solid var(--border); margin-bottom: 24px; }
+  .logo { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--green); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  #statusBadge { font-size: 12px; color: var(--text3); }
+
+  /* CONFIG PANEL */
+  .config-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+  .config-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .config-title svg { opacity: 0.5; }
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .config-grid { grid-template-columns: 1fr; } }
+  .field label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+  .field input, .field select { width: 100%; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 13px; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--green); }
+  .field-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; transition: background .15s; }
+  .btn:hover { background: var(--surface2); }
+  .btn-primary { background: var(--green); color: #fff; border-color: var(--green); font-weight: 500; }
+  .btn-primary:hover { background: #179060; border-color: #179060; }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* ERROR / LOADING */
+  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; display: none; }
+  .alert-error { background: #FCEBEB; color: #A32D2D; border: 0.5px solid #F7C1C1; }
+  .alert-success { background: #EAF3DE; color: #3B6D11; border: 0.5px solid #C0DD97; }
+  .loading { text-align: center; padding: 48px; color: var(--text3); }
+  .spinner { display: inline-block; width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 64px 24px; color: var(--text3); }
+  .empty svg { margin-bottom: 16px; opacity: .4; }
+  .empty p { font-size: 14px; margin-top: 8px; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--border); margin-bottom: 24px; }
+  .tab { padding: 10px 20px; font-size: 13px; cursor: pointer; background: none; border: none; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color .12s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 500; }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 500; line-height: 1.1; color: var(--text); }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .4px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filters select { padding: 7px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--text3); border-bottom: 0.5px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* PROGRESS */
+  .pbar { height: 5px; background: var(--border); border-radius: 3px; min-width: 80px; }
+  .pbar-fill { height: 100%; border-radius: 3px; background: var(--green); }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+
+  /* HISTORIAL */
+  .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .history-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; cursor: pointer; transition: border-color .15s; }
+  .history-card:hover { border-color: var(--green); }
+  .history-card.active { border-color: var(--green); border-width: 1.5px; }
+  .history-month { font-size: 13px; font-weight: 500; }
+  .history-val { font-size: 18px; font-weight: 500; color: var(--green); margin-top: 4px; }
+  .history-delta { font-size: 11px; margin-top: 3px; }
+  .delta-up { color: #3B6D11; }
+  .delta-down { color: #A32D2D; }
+</style>
+</head>
+<body>
+<!-- PANTALLA DE LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Red<span>+</span></div>
+    <div class="login-sub">Dashboard de facturación</div>
+    <input type="password" id="loginInput" placeholder="Contraseña" autofocus
+           onkeydown="if(event.key==='Enter') checkLogin()">
+    <button class="login-btn" onclick="checkLogin()">Ingresar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">Red<span>+</span> · Facturación</div>
+    <div class="header-right">
+      <span id="statusBadge">Sin datos cargados</span>
+      <button class="btn" onclick="document.getElementById('configPanel').style.display = document.getElementById('configPanel').style.display==='none'?'block':'none'">
+        ⚙ Configuración
+      </button>
+    </div>
+  </div>
+
+  <!-- CONFIG PANEL -->
+  <div id="configPanel" class="config-panel">
+    <div class="config-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-linecap="round"/></svg>
+      Conexión con Google Drive
+    </div>
+    <div class="alert alert-error" id="alertError"></div>
+    <div class="alert alert-success" id="alertSuccess"></div>
+    <div class="config-grid">
+      <div class="field">
+        <label>URL del script de Google Apps Script</label>
+        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/XXXX/exec" />
+        <div class="field-hint">Pegá acá la URL del Web App que publicaste en Apps Script</div>
+      </div>
+      <div class="field">
+        <label>Contraseña de acceso</label>
+        <input type="password" id="scriptPassword" placeholder="La que configuraste en el script" />
+        <div class="field-hint">Define quién puede ver los datos</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="loadFromDrive()">↓ Cargar datos desde Drive</button>
+      <button class="btn" onclick="saveConfig()">Guardar configuración</button>
+      <button class="btn" onclick="clearConfig()">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- EMPTY / LOADING / MAIN -->
+  <div id="loadingState" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <div>Cargando datos desde Google Drive...</div>
+  </div>
+
+  <div id="emptyState" class="empty">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="10" width="32" height="28" rx="4" stroke="currentColor" stroke-width="2"/><path d="M16 20h16M16 26h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <p style="font-size:15px;font-weight:500;color:var(--text2)">No hay datos cargados</p>
+    <p>Configurá la conexión con Google Drive arriba,<br>o cargá archivos CSV manualmente.</p>
+    <label class="btn" style="display:inline-flex;margin-top:16px;cursor:pointer">
+      ↑ Cargar CSV manualmente
+      <input type="file" accept=".csv" multiple onchange="handleManualFiles(this.files)" style="display:none">
+    </label>
+  </div>
+
+  <div id="mainContent" style="display:none">
+    <!-- CARGA MANUAL ADICIONAL -->
+    <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label class="btn" style="cursor:pointer">
+        ↑ Agregar CSV
+        <input type="file" accept=".csv" multiple onchange="handleManualFiles(this.files)" style="display:none">
+      </label>
+      <button class="btn btn-primary" onclick="loadFromDrive()">↻ Actualizar desde Drive</button>
+      <span id="filesLoaded" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('grupo')">Grupo Red+</button>
+      <button class="tab" onclick="switchTab('empresa')">Por empresa</button>
+      <button class="tab" onclick="switchTab('conceptos')">Conceptos</button>
+      <button class="tab" onclick="switchTab('clientes')">Top clientes</button>
+      <button class="tab" onclick="switchTab('historial')">Historial</button>
+    </div>
+
+    <!-- TAB: GRUPO -->
+    <div id="tab-grupo">
+      <div class="metrics" id="metricasGrupo"></div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Facturación por empresa / sucursal</div>
+          <div id="legendEmpresas" class="legend"></div>
+          <div class="chart-wrap"><div style="position:relative;height:260px"><canvas id="chartEmpresas" role="img" aria-label="Facturación por empresa"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tipos de comprobante</div>
+          <div id="legendTipos" class="legend"></div>
+          <div style="position:relative;height:200px"><canvas id="chartTipos" role="img" aria-label="Tipos de comprobante"></canvas></div>
+          <div id="tiposDetalle" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: EMPRESA -->
+    <div id="tab-empresa" style="display:none">
+      <div class="filters">
+        <select id="selEmpresa" onchange="renderEmpresa()">
+          <option value="">Todas las empresas</option>
+        </select>
+        <select id="selTipoComp" onchange="renderEmpresa()">
+          <option value="">Todos los comprobantes</option>
+          <option value="Factura">Solo Facturas</option>
+          <option value="Pre Factura">Solo Pre Facturas</option>
+        </select>
+      </div>
+      <div class="metrics" id="metricasEmpresa"></div>
+      <div class="card">
+        <div class="card-title">Evolución diaria</div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Total $</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#378ADD;border:1px dashed #378ADD"></span>Neto $</span>
+        </div>
+        <div class="chart-wrap"><div style="position:relative;height:240px"><canvas id="chartDiario" role="img" aria-label="Evolución diaria"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Conceptos más facturados</div>
+        <div class="chart-wrap"><div style="position:relative;height:220px"><canvas id="chartConcEmpresa" role="img" aria-label="Conceptos por empresa"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- TAB: CONCEPTOS -->
+    <div id="tab-conceptos" style="display:none">
+      <div class="filters">
+        <select id="selEmpresaConc" onchange="renderConceptos()">
+          <option value="">Todas las empresas</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-title">Por tipo de servicio</div>
+        <div id="legendConc" class="legend"></div>
+        <div class="chart-wrap"><div style="position:relative;height:300px"><canvas id="chartConc" role="img" aria-label="Facturación por concepto"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Detalle completo</div>
+        <div class="table-wrap">
+          <table id="tablaConceptos">
+            <thead><tr><th>Concepto</th><th>Tipo servicio</th><th class="num">Ítems</th><th class="num">Neto $</th><th class="num">IVA $</th><th class="num">Total $</th><th class="num">% del total</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CLIENTES -->
+    <div id="tab-clientes" style="display:none">
+      <div class="filters">
+        <select id="selEmpresaCli" onchange="renderClientes()">
+          <option value="">Todas las empresas</option>
+        </select>
+        <select id="selTopN" onchange="renderClientes()">
+          <option value="10">Top 10</option>
+          <option value="20">Top 20</option>
+          <option value="50">Top 50</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-title">Clientes con mayor facturación</div>
+        <div class="table-wrap">
+          <table id="tablaClientes">
+            <thead><tr><th>#</th><th>Cliente</th><th>Empresa</th><th>Localidad</th><th class="num">Ítems</th><th class="num">Total $</th><th style="min-width:100px">Participación</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORIAL -->
+    <div id="tab-historial" style="display:none">
+      <div class="card">
+        <div class="card-title">Comparativa mensual — todos los períodos cargados</div>
+        <div class="chart-wrap"><div style="position:relative;height:260px"><canvas id="chartHistorial" role="img" aria-label="Historial mensual"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <div class="card-title">Períodos disponibles</div>
+        <div id="historialGrid" class="history-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mainApp -->
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let allData = [];
+let charts  = {};
+const PAL = ['#1D9E75','#378ADD','#D85A30','#BA7517','#7F77DD','#D4537E','#639922','#E24B4A','#888780'];
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const fmt  = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n);
+const fmtN = n => new Intl.NumberFormat('es-AR',{maximumFractionDigits:0}).format(n);
+const pN   = s => { if(!s||!s.trim()) return 0; return parseFloat(s.trim().replace(/\./g,'').replace(',','.'))||0; };
+
+function extractMeta(filename){
+  const clean = filename.replace(/\.csv$/i,'').replace(/_+/g,' ').trim();
+  const idx   = clean.toLowerCase().indexOf('suc ');
+  if(idx>-1){
+    const empresa  = clean.substring(0,idx).trim();
+    const sucursal = clean.substring(idx+4).trim();
+    return { empresa: empresa||'Sin empresa', sucursal: sucursal||'Sin sucursal', label: (empresa||'Sin empresa')+' · '+sucursal };
+  }
+  return { empresa: clean, sucursal: 'Principal', label: clean };
+}
+
+function parseCSV(text, filename){
+  const meta  = extractMeta(filename);
+  const lines = text.split('\n');
+  let hi = -1; let headers = [];
+  for(let i=0;i<lines.length;i++){
+    const c = lines[i].split(';');
+    if(c[0]==='Producto Id'||c[1]==='Fecha'){ hi=i; headers=c.map(h=>h.trim()); break; }
+  }
+  if(hi===-1) return [];
+  const idx = n => headers.indexOf(n);
+  return lines.slice(hi+1).filter(l=>l.trim().length>5).map(l=>{
+    const c = l.split(';');
+    return {
+      empresa: meta.empresa, sucursal: meta.sucursal, label: meta.label,
+      fecha:        c[idx('Fecha')]?.trim()||'',
+      tipo:         c[idx('Tipo Comprobante')]?.trim()||'',
+      comprobante:  c[idx('Comprobante')]?.trim()||'',
+      cliente:      c[idx('Cliente')]?.trim()||'',
+      idCliente:    c[idx('Id Cliente')]?.trim()||'',
+      localidad:    c[idx('Localidad')]?.trim()||'',
+      producto:     c[idx('Producto')]?.trim()||'',
+      tipoServicio: c[idx('Tipo de Servicio')]?.trim()||'',
+      neto:         pN(c[idx('Neto $')]),
+      iva:          pN(c[idx('IVA $')]),
+      total:        pN(c[idx('Total $')]),
+    };
+  }).filter(r=>r.fecha);
+}
+
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+function saveConfig(){
+  localStorage.setItem('rp_url',  document.getElementById('scriptUrl').value.trim());
+  localStorage.setItem('rp_pass', document.getElementById('scriptPassword').value.trim());
+  showAlert('success','Configuración guardada.');
+}
+function clearConfig(){
+  localStorage.removeItem('rp_url'); localStorage.removeItem('rp_pass');
+  document.getElementById('scriptUrl').value='';
+  document.getElementById('scriptPassword').value='';
+  showAlert('success','Configuración eliminada.');
+}
+function showAlert(type, msg){
+  const id = type==='error'?'alertError':'alertSuccess';
+  const el = document.getElementById(id);
+  el.textContent = msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none', 4000);
+}
+window.addEventListener('load',()=>{
+  document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url')||'';
+  document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass')||'';
+});
+
+// ─── DRIVE LOAD ──────────────────────────────────────────────────────────────
+async function loadFromDrive(){
+  const url  = (document.getElementById('scriptUrl').value||localStorage.getItem('rp_url')||'').trim();
+  const pass = (document.getElementById('scriptPassword').value||localStorage.getItem('rp_pass')||'').trim();
+  if(!url){ showAlert('error','Ingresá la URL del script primero.'); return; }
+  document.getElementById('loadingState').style.display='block';
+  document.getElementById('mainContent').style.display='none';
+  document.getElementById('emptyState').style.display='none';
+  try {
+    const res  = await fetch(url+'?password='+encodeURIComponent(pass));
+    const json = await res.json();
+    if(json.error){ throw new Error(json.error); }
+    const newRows = [];
+    for(const file of json.files){
+      const rows = parseCSV(atob(file.content), file.name);
+      newRows.push(...rows);
+    }
+    allData = newRows;
+    document.getElementById('statusBadge').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
+    document.getElementById('filesLoaded').textContent = json.files.length+' archivos cargados';
+    rebuildAll();
+    showAlert('success', json.files.length+' archivos cargados desde Drive.');
+  } catch(e){
+    showAlert('error','Error al cargar: '+e.message);
+    document.getElementById('loadingState').style.display='none';
+    document.getElementById('emptyState').style.display='block';
+  }
+}
+
+// ─── MANUAL LOAD ─────────────────────────────────────────────────────────────
+function handleManualFiles(files){
+  let pending = files.length;
+  for(const file of files){
+    const r = new FileReader();
+    r.onload = e => {
+      allData.push(...parseCSV(e.target.result, file.name));
+      if(--pending===0){ rebuildAll(); document.getElementById('filesLoaded').textContent = 'CSV manuales cargados'; }
+    };
+    r.readAsText(file,'iso-8859-1');
+  }
+}
+
+// ─── REBUILD ─────────────────────────────────────────────────────────────────
+function rebuildAll(){
+  document.getElementById('loadingState').style.display='none';
+  if(!allData.length){ document.getElementById('emptyState').style.display='block'; return; }
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('mainContent').style.display='block';
+  const empresas = [...new Set(allData.map(r=>r.label))].sort();
+  ['selEmpresa','selEmpresaConc','selEmpresaCli'].forEach(id=>{
+    const s=document.getElementById(id), v=s.value;
+    s.innerHTML='<option value="">Todas las empresas</option>';
+    empresas.forEach(e=>{ const o=document.createElement('option'); o.value=e; o.textContent=e; s.appendChild(o); });
+    if(empresas.includes(v)) s.value=v;
+  });
+  renderGrupo(); renderEmpresa(); renderConceptos(); renderClientes(); renderHistorial();
+}
+
+// ─── CHART HELPERS ───────────────────────────────────────────────────────────
+function dc(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+// ─── TAB: GRUPO ──────────────────────────────────────────────────────────────
+function renderGrupo(){
+  const d = allData;
+  const totalTotal = d.reduce((s,r)=>s+r.total,0);
+  const totalNeto  = d.reduce((s,r)=>s+r.neto,0);
+  const totalIva   = d.reduce((s,r)=>s+r.iva,0);
+  const clientes   = new Set(d.map(r=>r.idCliente)).size;
+  const comps      = new Set(d.map(r=>r.label+'|'+r.comprobante)).size;
+  document.getElementById('metricasGrupo').innerHTML = [
+    ['Total facturado', fmt(totalTotal), 'IVA incluido'],
+    ['Neto',           fmt(totalNeto),  ''],
+    ['IVA',            fmt(totalIva),   totalNeto ? ((totalIva/totalNeto)*100).toFixed(1)+'%' : ''],
+    ['Comprobantes',   fmtN(comps),     'únicos'],
+    ['Clientes',       fmtN(clientes),  'en el período'],
+  ].map(([l,v,s])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-value">${v}</div><div class="metric-sub">${s}</div></div>`).join('');
+
+  const byE={};
+  d.forEach(r=>{ if(!byE[r.label]) byE[r.label]={total:0}; byE[r.label].total+=r.total; });
+  const eLabels = Object.keys(byE), eVals = eLabels.map(l=>byE[l].total);
+  document.getElementById('legendEmpresas').innerHTML = eLabels.map((l,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${PAL[i%PAL.length]}"></span>${l}</span>`).join('');
+  dc('chartEmpresas');
+  charts['chartEmpresas'] = new Chart(document.getElementById('chartEmpresas'),{
+    type:'bar',
+    data:{ labels:eLabels, datasets:[{data:eVals, backgroundColor:eLabels.map((_,i)=>PAL[i%PAL.length]), borderRadius:4}] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}, scales:{y:{ticks:{callback:v=>fmt(v)}, grid:{color:'rgba(128,128,128,.08)'}}, x:{grid:{display:false}}} }
+  });
+
+  const byT={};
+  d.forEach(r=>{ if(!byT[r.tipo]) byT[r.tipo]={total:0,count:0}; byT[r.tipo].total+=r.total; byT[r.tipo].count++; });
+  const tL=Object.keys(byT), tV=tL.map(l=>byT[l].total);
+  document.getElementById('legendTipos').innerHTML = tL.map((l,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${PAL[i%PAL.length]}"></span>${l}</span>`).join('');
+  dc('chartTipos');
+  charts['chartTipos'] = new Chart(document.getElementById('chartTipos'),{
+    type:'doughnut',
+    data:{ labels:tL, datasets:[{data:tV, backgroundColor:tL.map((_,i)=>PAL[i%PAL.length]), borderWidth:0}] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}} }
+  });
+  const totPos = tV.reduce((s,v)=>s+(v>0?v:0),0);
+  document.getElementById('tiposDetalle').innerHTML = '<table style="font-size:12px;width:100%">'+
+    tL.map((l,i)=>`<tr><td><span class="legend-dot" style="background:${PAL[i%PAL.length]};display:inline-block;vertical-align:middle;margin-right:6px;width:8px;height:8px;border-radius:2px"></span>${l}</td><td class="num">${fmt(tV[i])}</td><td class="num" style="color:var(--text3)">${totPos?((Math.abs(tV[i])/totPos)*100).toFixed(1)+'%':''}</td></tr>`).join('')+
+  '</table>';
+}
+
+// ─── TAB: EMPRESA ────────────────────────────────────────────────────────────
+function renderEmpresa(){
+  const emp  = document.getElementById('selEmpresa').value;
+  const tipo = document.getElementById('selTipoComp').value;
+  let d = allData;
+  if(emp)  d = d.filter(r=>r.label===emp);
+  if(tipo) d = d.filter(r=>r.tipo===tipo);
+  const tT=d.reduce((s,r)=>s+r.total,0), tN=d.reduce((s,r)=>s+r.neto,0);
+  const cl=new Set(d.map(r=>r.idCliente)).size, co=new Set(d.map(r=>r.label+'|'+r.comprobante)).size;
+  document.getElementById('metricasEmpresa').innerHTML = [
+    ['Total',fmt(tT),'IVA incluido'],['Neto',fmt(tN),''],['Comprobantes',fmtN(co),''],['Clientes',fmtN(cl),''],
+  ].map(([l,v,s])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-value">${v}</div><div class="metric-sub">${s}</div></div>`).join('');
+
+  const byD={};
+  d.forEach(r=>{ if(!byD[r.fecha]) byD[r.fecha]={total:0,neto:0}; byD[r.fecha].total+=r.total; byD[r.fecha].neto+=r.neto; });
+  const dias=Object.keys(byD).sort((a,b)=>{ const pa=a.split('/'),pb=b.split('/'); return new Date(pa[2],pa[1]-1,pa[0])-new Date(pb[2],pb[1]-1,pb[0]); });
+  dc('chartDiario');
+  charts['chartDiario']=new Chart(document.getElementById('chartDiario'),{
+    type:'line',
+    data:{ labels:dias, datasets:[
+      {label:'Total $', data:dias.map(d=>byD[d].total), borderColor:'#1D9E75', backgroundColor:'#1D9E7522', fill:true, tension:.35, pointRadius:2, borderWidth:2},
+      {label:'Neto $',  data:dias.map(d=>byD[d].neto),  borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:.35, pointRadius:2, borderWidth:2, borderDash:[4,3]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},x:{ticks:{autoSkip:true,maxRotation:45},grid:{display:false}}}}
+  });
+
+  const byC={};
+  d.forEach(r=>{ const k=r.tipoServicio||'Sin clasificar'; if(!byC[k]) byC[k]=0; byC[k]+=r.total; });
+  const cSorted=Object.entries(byC).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  dc('chartConcEmpresa');
+  charts['chartConcEmpresa']=new Chart(document.getElementById('chartConcEmpresa'),{
+    type:'bar',
+    data:{labels:cSorted.map(([k])=>k),datasets:[{data:cSorted.map(([,v])=>v),backgroundColor:cSorted.map((_,i)=>PAL[i%PAL.length]),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{x:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},y:{grid:{display:false}}}}
+  });
+}
+
+// ─── TAB: CONCEPTOS ──────────────────────────────────────────────────────────
+function renderConceptos(){
+  const emp = document.getElementById('selEmpresaConc').value;
+  let d = allData;
+  if(emp) d = d.filter(r=>r.label===emp);
+  const byC={};
+  d.forEach(r=>{ const k=r.tipoServicio||'Sin clasificar'; if(!byC[k]) byC[k]={neto:0,iva:0,total:0,count:0,prods:new Set()}; byC[k].neto+=r.neto; byC[k].iva+=r.iva; byC[k].total+=r.total; byC[k].count++; byC[k].prods.add(r.producto); });
+  const sorted=Object.entries(byC).sort((a,b)=>b[1].total-a[1].total);
+  const totAbs=sorted.reduce((s,[,v])=>s+Math.abs(v.total),0);
+  const labels=sorted.map(([k])=>k), vals=sorted.map(([,v])=>v.total);
+  document.getElementById('legendConc').innerHTML=labels.slice(0,6).map((l,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${PAL[i%PAL.length]}"></span>${l}</span>`).join('');
+  dc('chartConc');
+  charts['chartConc']=new Chart(document.getElementById('chartConc'),{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:labels.map((_,i)=>PAL[i%PAL.length]),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{x:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},y:{grid:{display:false},ticks:{font:{size:12}}}}}
+  });
+  document.querySelector('#tablaConceptos tbody').innerHTML=sorted.map(([k,v])=>`
+    <tr>
+      <td>${k}</td>
+      <td style="color:var(--text2);font-size:12px">${[...v.prods].slice(0,2).join(', ')}</td>
+      <td class="num">${fmtN(v.count)}</td>
+      <td class="num">${fmt(v.neto)}</td>
+      <td class="num">${fmt(v.iva)}</td>
+      <td class="num">${fmt(v.total)}</td>
+      <td class="num">${totAbs?((Math.abs(v.total)/totAbs)*100).toFixed(1)+'%':''}</td>
+    </tr>`).join('');
+}
+
+// ─── TAB: CLIENTES ───────────────────────────────────────────────────────────
+function renderClientes(){
+  const emp  = document.getElementById('selEmpresaCli').value;
+  const topN = parseInt(document.getElementById('selTopN').value)||10;
+  let d = allData;
+  if(emp) d = d.filter(r=>r.label===emp);
+  const byC={};
+  d.forEach(r=>{ if(!byC[r.idCliente]) byC[r.idCliente]={nombre:r.cliente,empresa:r.label,localidad:r.localidad,total:0,count:0}; byC[r.idCliente].total+=r.total; byC[r.idCliente].count++; });
+  const sorted=Object.values(byC).sort((a,b)=>b.total-a.total).slice(0,topN);
+  const maxT=sorted[0]?.total||1;
+  document.querySelector('#tablaClientes tbody').innerHTML=sorted.map((c,i)=>`
+    <tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td style="font-weight:500">${c.nombre}</td>
+      <td style="color:var(--text2);font-size:12px">${c.empresa}</td>
+      <td style="color:var(--text2)">${c.localidad}</td>
+      <td class="num">${fmtN(c.count)}</td>
+      <td class="num">${fmt(c.total)}</td>
+      <td><div class="pbar"><div class="pbar-fill" style="width:${(c.total/maxT*100).toFixed(0)}%"></div></div></td>
+    </tr>`).join('');
+}
+
+// ─── TAB: HISTORIAL ──────────────────────────────────────────────────────────
+function renderHistorial(){
+  const byMes={};
+  allData.forEach(r=>{
+    const p=r.fecha.split('/');
+    if(p.length<3) return;
+    const k=p[1].padStart(2,'0')+'/'+p[2];
+    if(!byMes[k]) byMes[k]={total:0,neto:0};
+    byMes[k].total+=r.total; byMes[k].neto+=r.neto;
+  });
+  const meses=Object.keys(byMes).sort();
+  if(!meses.length) return;
+  dc('chartHistorial');
+  charts['chartHistorial']=new Chart(document.getElementById('chartHistorial'),{
+    type:'bar',
+    data:{labels:meses,datasets:[
+      {label:'Total $',data:meses.map(m=>byMes[m].total),backgroundColor:'#1D9E75',borderRadius:4},
+      {label:'Neto $', data:meses.map(m=>byMes[m].neto), backgroundColor:'#378ADD33',borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},x:{grid:{display:false}}}}
+  });
+  document.getElementById('historialGrid').innerHTML=meses.map((m,i)=>{
+    const delta=i>0?((byMes[m].total-byMes[meses[i-1]].total)/Math.abs(byMes[meses[i-1]].total)*100).toFixed(1):null;
+    return `<div class="history-card">
+      <div class="history-month">${m}</div>
+      <div class="history-val">${fmt(byMes[m].total)}</div>
+      ${delta!==null?`<div class="history-delta ${delta>=0?'delta-up':'delta-down'}">${delta>=0?'↑':'↓'} ${Math.abs(delta)}% vs mes anterior</div>`:'<div class="history-delta" style="color:var(--text3)">Primer período</div>'}
+    </div>`;
+  }).join('');
+}
+
+// ─── TAB SWITCH ──────────────────────────────────────────────────────────────
+function switchTab(name){
+  const names=['grupo','empresa','conceptos','clientes','historial'];
+  names.forEach(n=>{ document.getElementById('tab-'+n).style.display=n===name?'block':'none'; });
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
+  if(name==='empresa') renderEmpresa();
+  if(name==='conceptos') renderConceptos();
+  if(name==='clientes') renderClientes();
+  if(name==='historial') renderHistorial();
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+// ⚠ CAMBIÁ ESTE VALOR antes de subir a GitHub
+const APP_PASSWORD = 'redmas2024';
+
+function checkLogin(){
+  const val = document.getElementById('loginInput').value;
+  if(val === APP_PASSWORD){
+    sessionStorage.setItem('rp_auth','1');
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url')||'';
+    document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass')||'';
+  } else {
+    const err = document.getElementById('loginError');
+    err.textContent = 'Contraseña incorrecta';
+    document.getElementById('loginInput').value='';
+    document.getElementById('loginInput').focus();
+    setTimeout(()=>err.textContent='', 3000);
+  }
+}
+
+// Si ya ingresó en esta sesión del navegador, mostrar directo
+if(sessionStorage.getItem('rp_auth')==='1'){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+}
+</script>
+</body>
+</html>
