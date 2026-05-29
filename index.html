@@ -704,9 +704,9 @@ function checkLogin(){
     document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url') || 'https://script.google.com/macros/s/AKfycbxElk-roFeTXGo8Gl3VSBTdwtLwoygRWZfCFa3MLas4KoTaQhCqMEP7DixpZ0-BwaR3kA/exec';
     document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass') || 'Red2024';
     applyRole(role);
-    // si es viewer y hay config guardada, cargar datos automáticamente
-    if(role === 'viewer' && localStorage.getItem('rp_url')){
-      loadFromDrive();
+    // si es viewer y hay URL configurada, cargar datos automáticamente
+    if(role === 'viewer'){
+      setTimeout(loadFromDrive, 100);
     }
   } else {
     const err = document.getElementById('loginError');
