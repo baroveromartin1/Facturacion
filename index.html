@@ -201,6 +201,7 @@
       <button id="btnConfig" class="btn" onclick="document.getElementById('configPanel').style.display = document.getElementById('configPanel').style.display==='none'?'block':'none'">
         ⚙ Configuración
       </button>
+      <button class="btn" onclick="cerrarSesion()" style="color:var(--red)">⎋ Salir</button>
     </div>
   </div>
 
@@ -721,29 +722,32 @@ function switchTab(name){
 const PASSWORD_ADMIN   = 'Red2024';   // ve todo: configuración + carga de archivos
 const PASSWORD_VIEWER  = 'Red2026';   // solo ve el dashboard, sin configuración
 
+function cerrarSesion(){
+  localStorage.removeItem('rp_auth');
+  localStorage.removeItem('rp_role');
+  location.reload();
+}
+
 function applyRole(role){
   const esAdmin = role === 'admin';
   document.getElementById('configPanel').style.display       = esAdmin ? 'block' : 'none';
   document.getElementById('adminControls').style.display     = esAdmin ? 'flex'  : 'none';
   document.getElementById('viewerControls').style.display    = esAdmin ? 'none'  : 'flex';
   document.getElementById('btnConfig').style.display         = esAdmin ? 'inline-flex' : 'none';
-  sessionStorage.setItem('rp_role', role);
+  localStorage.setItem('rp_role', role);
+  localStorage.setItem('rp_auth', '1');
 }
 
 function checkLogin(){
   const val = document.getElementById('loginInput').value;
   if(val === PASSWORD_ADMIN || val === PASSWORD_VIEWER){
     const role = val === PASSWORD_ADMIN ? 'admin' : 'viewer';
-    sessionStorage.setItem('rp_auth','1');
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('mainApp').style.display='block';
     document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url') || 'https://script.google.com/macros/s/AKfycbxElk-roFeTXGo8Gl3VSBTdwtLwoygRWZfCFa3MLas4KoTaQhCqMEP7DixpZ0-BwaR3kA/exec';
     document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass') || 'Red2024';
     applyRole(role);
-    // si es viewer y hay URL configurada, cargar datos automáticamente
-    if(role === 'viewer'){
-      setTimeout(loadFromDrive, 100);
-    }
+    setTimeout(loadFromDrive, 100);
   } else {
     const err = document.getElementById('loginError');
     err.textContent = 'Contraseña incorrecta';
@@ -753,12 +757,18 @@ function checkLogin(){
   }
 }
 
-// Si ya ingresó en esta sesión del navegador, mostrar directo
-if(sessionStorage.getItem('rp_auth')==='1'){
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('mainApp').style.display='block';
-  applyRole(sessionStorage.getItem('rp_role')||'viewer');
-}
+// Al cargar la página — si ya tiene sesión guardada, mostrar directo y cargar datos
+(function(){
+  if(localStorage.getItem('rp_auth')==='1'){
+    const role = localStorage.getItem('rp_role')||'viewer';
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url') || 'https://script.google.com/macros/s/AKfycbxElk-roFeTXGo8Gl3VSBTdwtLwoygRWZfCFa3MLas4KoTaQhCqMEP7DixpZ0-BwaR3kA/exec';
+    document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass') || 'Red2024';
+    applyRole(role);
+    setTimeout(loadFromDrive, 100);
+  }
+})();
 </script>
 </body>
 </html>
