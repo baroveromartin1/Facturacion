@@ -248,14 +248,19 @@
   </div>
 
   <div id="mainContent" style="display:none">
-    <!-- CARGA MANUAL ADICIONAL -->
-  <div id="adminControls" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <!-- CONTROLES ADMIN -->
+    <div id="adminControls" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <label class="btn" style="cursor:pointer">
         ↑ Agregar CSV
         <input type="file" accept=".csv" multiple onchange="handleManualFiles(this.files)" style="display:none">
       </label>
       <button class="btn btn-primary" onclick="loadFromDrive()">↻ Actualizar desde Drive</button>
       <span id="filesLoaded" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+    <!-- BOTÓN ACTUALIZAR PARA VIEWER -->
+    <div id="viewerControls" style="margin-bottom:16px;display:none;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="loadFromDrive()">↻ Actualizar datos</button>
+      <span id="filesLoadedViewer" style="font-size:12px;color:var(--text3)"></span>
     </div>
 
     <!-- TABS -->
@@ -476,6 +481,7 @@ async function loadFromDrive(){
     allData = newRows;
     document.getElementById('statusBadge').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
     document.getElementById('filesLoaded').textContent = json.files.length+' archivos cargados';
+    document.getElementById('filesLoadedViewer').textContent = json.files.length+' archivos cargados';
     rebuildAll();
     showAlert('success', json.files.length+' archivos cargados desde Drive.');
   } catch(e){
@@ -716,11 +722,10 @@ const PASSWORD_ADMIN   = 'Red2024';   // ve todo: configuración + carga de arch
 const PASSWORD_VIEWER  = 'Red2026';   // solo ve el dashboard, sin configuración
 
 function applyRole(role){
-  // admin ve todo, viewer no ve config ni botones de carga
   const esAdmin = role === 'admin';
   document.getElementById('configPanel').style.display       = esAdmin ? 'block' : 'none';
   document.getElementById('adminControls').style.display     = esAdmin ? 'flex'  : 'none';
-  // guardar botón de config en header
+  document.getElementById('viewerControls').style.display    = esAdmin ? 'none'  : 'flex';
   document.getElementById('btnConfig').style.display         = esAdmin ? 'inline-flex' : 'none';
   sessionStorage.setItem('rp_role', role);
 }
