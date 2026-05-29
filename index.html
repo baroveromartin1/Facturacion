@@ -195,7 +195,7 @@
     <div class="logo">Red<span>+</span> · Facturación</div>
     <div class="header-right">
       <span id="statusBadge">Sin datos cargados</span>
-      <button class="btn" onclick="document.getElementById('configPanel').style.display = document.getElementById('configPanel').style.display==='none'?'block':'none'">
+      <button id="btnConfig" class="btn" onclick="document.getElementById('configPanel').style.display = document.getElementById('configPanel').style.display==='none'?'block':'none'">
         ⚙ Configuración
       </button>
     </div>
@@ -246,7 +246,7 @@
 
   <div id="mainContent" style="display:none">
     <!-- CARGA MANUAL ADICIONAL -->
-    <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <div id="adminControls" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <label class="btn" style="cursor:pointer">
         ↑ Agregar CSV
         <input type="file" accept=".csv" multiple onchange="handleManualFiles(this.files)" style="display:none">
@@ -680,17 +680,34 @@ function switchTab(name){
 }
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-// ⚠ CAMBIÁ ESTE VALOR antes de subir a GitHub
-const APP_PASSWORD = 'redmas2024';
+// ⚠ CAMBIÁ ESTOS VALORES antes de subir a GitHub
+const PASSWORD_ADMIN   = 'redmas2024';   // ve todo: configuración + carga de archivos
+const PASSWORD_VIEWER  = 'redver2024';   // solo ve el dashboard, sin configuración
+
+function applyRole(role){
+  // admin ve todo, viewer no ve config ni botones de carga
+  const esAdmin = role === 'admin';
+  document.getElementById('configPanel').style.display       = esAdmin ? 'block' : 'none';
+  document.getElementById('adminControls').style.display     = esAdmin ? 'flex'  : 'none';
+  // guardar botón de config en header
+  document.getElementById('btnConfig').style.display         = esAdmin ? 'inline-flex' : 'none';
+  sessionStorage.setItem('rp_role', role);
+}
 
 function checkLogin(){
   const val = document.getElementById('loginInput').value;
-  if(val === APP_PASSWORD){
+  if(val === PASSWORD_ADMIN || val === PASSWORD_VIEWER){
+    const role = val === PASSWORD_ADMIN ? 'admin' : 'viewer';
     sessionStorage.setItem('rp_auth','1');
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('mainApp').style.display='block';
     document.getElementById('scriptUrl').value   = localStorage.getItem('rp_url')||'';
     document.getElementById('scriptPassword').value = localStorage.getItem('rp_pass')||'';
+    applyRole(role);
+    // si es viewer y hay config guardada, cargar datos automáticamente
+    if(role === 'viewer' && localStorage.getItem('rp_url')){
+      loadFromDrive();
+    }
   } else {
     const err = document.getElementById('loginError');
     err.textContent = 'Contraseña incorrecta';
@@ -704,6 +721,7 @@ function checkLogin(){
 if(sessionStorage.getItem('rp_auth')==='1'){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='block';
+  applyRole(sessionStorage.getItem('rp_role')||'viewer');
 }
 </script>
 </body>
