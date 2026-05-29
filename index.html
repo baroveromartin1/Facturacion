@@ -299,7 +299,7 @@
       </div>
       <div class="metrics" id="metricasEmpresa"></div>
       <div class="card">
-        <div class="card-title">Evolución diaria</div>
+        <div class="card-title">Evolución mensual</div>
         <div class="legend">
           <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Total $</span>
           <span class="legend-item"><span class="legend-dot" style="background:#378ADD;border:1px dashed #378ADD"></span>Neto $</span>
@@ -386,14 +386,22 @@ const fmtN = n => new Intl.NumberFormat('es-AR',{maximumFractionDigits:0}).forma
 const pN   = s => { if(!s||!s.trim()) return 0; return parseFloat(s.trim().replace(/\./g,'').replace(',','.'))||0; };
 
 function extractMeta(filename){
-  const clean = filename.replace(/\.csv$/i,'').replace(/_+/g,' ').trim();
+  // Eliminar extensión y extraer período si existe (ej: _2026_05 al final)
+  let name = filename.replace(/\.csv$/i,'');
+  let periodo = '';
+  const periodoMatch = name.match(/_(\d{4})_(\d{2})$/);
+  if(periodoMatch){
+    periodo = periodoMatch[1]+'-'+periodoMatch[2]; // "2026-05"
+    name = name.replace(/_\d{4}_\d{2}$/, '');     // quitar el período del nombre
+  }
+  const clean = name.replace(/_+/g,' ').trim();
   const idx   = clean.toLowerCase().indexOf('suc ');
   if(idx>-1){
     const empresa  = clean.substring(0,idx).trim();
     const sucursal = clean.substring(idx+4).trim();
-    return { empresa: empresa||'Sin empresa', sucursal: sucursal||'Sin sucursal', label: (empresa||'Sin empresa')+' · '+sucursal };
+    return { empresa: empresa||'Sin empresa', sucursal: sucursal||'Sin sucursal', label: (empresa||'Sin empresa')+' · '+sucursal, periodo };
   }
-  return { empresa: clean, sucursal: 'Principal', label: clean };
+  return { empresa: clean, sucursal: 'Principal', label: clean, periodo };
 }
 
 function parseCSV(text, filename){
@@ -409,7 +417,7 @@ function parseCSV(text, filename){
   return lines.slice(hi+1).filter(l=>l.trim().length>5).map(l=>{
     const c = l.split(';');
     return {
-      empresa: meta.empresa, sucursal: meta.sucursal, label: meta.label,
+      empresa: meta.empresa, sucursal: meta.sucursal, label: meta.label, periodo: meta.periodo,
       fecha:        c[idx('Fecha')]?.trim()||'',
       tipo:         c[idx('Tipo Comprobante')]?.trim()||'',
       comprobante:  c[idx('Comprobante')]?.trim()||'',
@@ -565,17 +573,25 @@ function renderEmpresa(){
     ['Total',fmt(tT),'IVA incluido'],['Neto',fmt(tN),''],['Comprobantes',fmtN(co),''],['Clientes',fmtN(cl),''],
   ].map(([l,v,s])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-value">${v}</div><div class="metric-sub">${s}</div></div>`).join('');
 
-  const byD={};
-  d.forEach(r=>{ if(!byD[r.fecha]) byD[r.fecha]={total:0,neto:0}; byD[r.fecha].total+=r.total; byD[r.fecha].neto+=r.neto; });
-  const dias=Object.keys(byD).sort((a,b)=>{ const pa=a.split('/'),pb=b.split('/'); return new Date(pa[2],pa[1]-1,pa[0])-new Date(pb[2],pb[1]-1,pb[0]); });
+  const byM={};
+  const nombresMes=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  d.forEach(r=>{
+    let k = r.periodo || '';
+    if(!k){ const p=r.fecha.split('/'); if(p.length<3) return; k=p[2]+'-'+p[1].padStart(2,'0'); }
+    if(!byM[k]) byM[k]={total:0,neto:0,label:''};
+    byM[k].total+=r.total; byM[k].neto+=r.neto;
+    if(!byM[k].label && k.length===7){ const [anio,mes]=k.split('-'); byM[k].label=(nombresMes[parseInt(mes)]||mes)+' '+anio; }
+  });
+  const meses=Object.keys(byM).sort();
+  const labelsM=meses.map(m=>byM[m].label||m);
   dc('chartDiario');
   charts['chartDiario']=new Chart(document.getElementById('chartDiario'),{
-    type:'line',
-    data:{ labels:dias, datasets:[
-      {label:'Total $', data:dias.map(d=>byD[d].total), borderColor:'#1D9E75', backgroundColor:'#1D9E7522', fill:true, tension:.35, pointRadius:2, borderWidth:2},
-      {label:'Neto $',  data:dias.map(d=>byD[d].neto),  borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:.35, pointRadius:2, borderWidth:2, borderDash:[4,3]}
+    type:'bar',
+    data:{ labels:labelsM, datasets:[
+      {label:'Total $', data:meses.map(m=>byM[m].total), backgroundColor:'#1D9E75', borderRadius:4},
+      {label:'Neto $',  data:meses.map(m=>byM[m].neto),  backgroundColor:'#378ADD55', borderRadius:4}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},x:{ticks:{autoSkip:true,maxRotation:45},grid:{display:false}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},x:{grid:{display:false}}}}
   });
 
   const byC={};
@@ -644,27 +660,39 @@ function renderClientes(){
 function renderHistorial(){
   const byMes={};
   allData.forEach(r=>{
-    const p=r.fecha.split('/');
-    if(p.length<3) return;
-    const k=p[1].padStart(2,'0')+'/'+p[2];
-    if(!byMes[k]) byMes[k]={total:0,neto:0};
-    byMes[k].total+=r.total; byMes[k].neto+=r.neto;
+    // Usar período del archivo si existe, si no derivar de la fecha de la fila
+    let k = r.periodo || '';
+    if(!k){
+      const p=r.fecha.split('/');
+      if(p.length<3) return;
+      k = p[2]+'-'+p[1].padStart(2,'0');
+    }
+    if(!byMes[k]) byMes[k]={total:0,neto:0,label:''};
+    byMes[k].total+=r.total;
+    byMes[k].neto+=r.neto;
+    // label legible: "May 2026"
+    if(!byMes[k].label && k.length===7){
+      const [anio,mes] = k.split('-');
+      const nombres=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      byMes[k].label = (nombres[parseInt(mes)]||mes)+' '+anio;
+    }
   });
   const meses=Object.keys(byMes).sort();
   if(!meses.length) return;
+  const labels = meses.map(m=>byMes[m].label||m);
   dc('chartHistorial');
   charts['chartHistorial']=new Chart(document.getElementById('chartHistorial'),{
     type:'bar',
-    data:{labels:meses,datasets:[
+    data:{labels,datasets:[
       {label:'Total $',data:meses.map(m=>byMes[m].total),backgroundColor:'#1D9E75',borderRadius:4},
-      {label:'Neto $', data:meses.map(m=>byMes[m].neto), backgroundColor:'#378ADD33',borderRadius:4},
+      {label:'Neto $', data:meses.map(m=>byMes[m].neto), backgroundColor:'#378ADD55',borderRadius:4},
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,.08)'}},x:{grid:{display:false}}}}
   });
   document.getElementById('historialGrid').innerHTML=meses.map((m,i)=>{
     const delta=i>0?((byMes[m].total-byMes[meses[i-1]].total)/Math.abs(byMes[meses[i-1]].total)*100).toFixed(1):null;
     return `<div class="history-card">
-      <div class="history-month">${m}</div>
+      <div class="history-month">${byMes[m].label||m}</div>
       <div class="history-val">${fmt(byMes[m].total)}</div>
       ${delta!==null?`<div class="history-delta ${delta>=0?'delta-up':'delta-down'}">${delta>=0?'↑':'↓'} ${Math.abs(delta)}% vs mes anterior</div>`:'<div class="history-delta" style="color:var(--text3)">Primer período</div>'}
     </div>`;
